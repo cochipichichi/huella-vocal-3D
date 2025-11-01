@@ -62,6 +62,36 @@ btnTheme.onclick=()=>{state.theme=state.theme==='light'?'dark':'light'; applyThe
 btnContrast.onclick=()=>{state.highContrast=!state.highContrast; applyContrast();};
 applyTheme(); applyContrast();
 
+// --- v7: Fullscreen for 3D plot ---
+const btnFull = document.getElementById('btnFull');
+function isFullscreen(){ return document.fullscreenElement != null; }
+function hostEl(){ return plotEl.closest('.fullscreen-host') || plotEl.parentElement; }
+function setPlotHeight(){
+  const h = isFullscreen() ? window.innerHeight - 20 : 520;
+  plotEl.style.height = Math.max(320, h) + 'px';
+  if(window.Plotly && plotEl){ Plotly.Plots.resize(plotEl); }
+}
+async function toggleFullscreen(){
+  const host = hostEl();
+  if(!isFullscreen()){
+    if(host.requestFullscreen) await host.requestFullscreen();
+    host.classList.add('fullscreen-active');
+    plotEl.classList.add('full');
+    btnFull.textContent = '⏹️ Salir de pantalla completa';
+  }else{
+    await document.exitFullscreen();
+    host.classList.remove('fullscreen-active');
+    plotEl.classList.remove('full');
+    btnFull.textContent = '⛶ Pantalla completa';
+  }
+  setTimeout(setPlotHeight, 60);
+}
+btnFull?.addEventListener('click', toggleFullscreen);
+document.addEventListener('fullscreenchange', setPlotHeight);
+window.addEventListener('resize', setPlotHeight);
+
+setPlotHeight();
+
 function getParams(){
   const fs = parseInt(frameSizeEl?.value || 2048);
   const hop = parseInt(hopSizeEl?.value || 512);
