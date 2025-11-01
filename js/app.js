@@ -53,6 +53,142 @@ const presetSelect=document.getElementById('presetSelect');
 const saveSession=document.getElementById('saveSession');
 const historyEl=document.getElementById('history');
 
+// === v7-pro: simple k-NN on summary features ===
+let knnModel = null;
+function featurize(seq){
+  if(!seq || !seq.length) return [0,0,0,0,0,0];
+  const mean = k=> seq.reduce((a,d)=>a+(d[k]??0),0)/seq.length;
+  const std = k=> { const m=mean(k); return Math.sqrt(seq.reduce((a,d)=>a+((d[k]??0)-m)**2,0)/seq.length)||1; };
+  return [
+    mean('centroid_norm')||0, mean('rolloff_norm')||0, mean('flatness')||0, mean('zcr')||0, mean('rms')||0,
+    (mean('f0approx')||0)/11025
+  ];
+}
+function trainKNN(){
+  const A = currentData||[], B=currentDataB||[];
+  if(!A.length || !B.length){ alert('Carga A y B para entrenar.'); return; }
+  const XA = featurize(A), XB = featurize(B);
+  knnModel = {X:[XA,XB], y:['A','B']};
+  alert('k‑NN entrenado con A/B (k=1).');
+}
+function predictActive(){
+  if(!knnModel){ alert('Entrena primero el k‑NN.'); return; }
+  // Predice para el set seleccionado en specSource
+  const src = (specSource?.value||'A');
+  const S = (src==='A'? currentData : currentDataB);
+  if(!S.length){ alert('No hay datos en el set activo.'); return; }
+  const x = featurize(S);
+  // k=1 NN
+  let best=Infinity, cls='?';
+  for(let i=0;i<knnModel.X.length;i++){
+    const d = euclid(x, knnModel.X[i]);
+    if(d<best){ best=d; cls=knnModel.y[i]; }
+  }
+  alert('Predicción k‑NN para set '+src+': '+cls+' (d='+best.toFixed(4)+')');
+}
+function euclid(a,b){ let s=0; for(let i=0;i<a.length;i++){ const d=(a[i]-b[i]); s+=d*d; } return Math.sqrt(s); }
+document.getElementById('btnTrain')?.addEventListener('click', trainKNN);
+document.getElementById('btnPredict')?.addEventListener('click', predictActive);
+
+
+// === v7-pro: PDF export ===
+async function exportPDF(){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({orientation:'landscape', unit:'px', format:'a4'});
+  // Title
+  doc.setFontSize(16); doc.text('Huella Vocal 3D — Reporte', 24, 32);
+  // Metrics
+  doc.setFontSize(12);
+  doc.text('Distancia centroides: ' + (mDist.textContent||'—'), 24, 52);
+  doc.text('DTW(centroid_norm): ' + (mDTW.textContent||'—'), 24, 66);
+  doc.text('Frames A/B: ' + (mCounts.textContent||'—'), 24, 80);
+  // Capture plot
+  const imgUrl = await Plotly.toImage(plotEl, {format:'png', width:1000, height:520});
+  doc.addImage(imgUrl, 'PNG', 24, 90, 760, 395);
+  // Annotations list
+  doc.text('Anotaciones:', 24, 505);
+  const lines = (Plotly?.gd?._fullLayout?.annotations || []).map(a=> '- '+a.text) || [];
+  let y=520;
+  for(const L of lines.slice(0,10)){ doc.text(L, 24, y); y+=14; }
+  doc.save('reporte_huella.pdf');
+}
+document.getElementById('btnPDF')?.addEventListener('click', exportPDF);
+
+// === v7-pro: Spectrogram brush selection ===
+let brushing = false, bx0=null, bx1=null;
+specCanvas?.addEventListener('mousedown', (e)=>{ brushing=true; specCanvas.classList.add('brushing'); const r=specCanvas.getBoundingClientRect(); bx0=(e.clientX-r.left)/r.width; bx1=bx0; drawBrush(); });
+specCanvas?.addEventListener('mousemove', (e)=>{ if(!brushing) return; const r=specCanvas.getBoundingClientRect(); bx1=(e.clientX-r.left)/r.width; drawBrush(); });
+window.addEventListener('mouseup', ()=>{ if(!brushing) return; brushing=false; specCanvas.classList.remove('brushing'); applyBrush(); });
+function drawBrush(){
+  updateSpectrogram();
+  const ctx=specCanvas.getContext('2d'); const W=specCanvas.width, H=specCanvas.height;
+  const x0=Math.floor(Math.min(bx0,bx1)*W), x1=Math.floor(Math.max(bx0,bx1)*W);
+  ctx.fillStyle='rgba(255,255,0,0.15)'; ctx.fillRect(x0,0,Math.max(1,x1-x0),H);
+  ctx.strokeStyle='rgba(255,255,0,0.8)'; ctx.lineWidth=2; ctx.strokeRect(x0+0.5,0.5,Math.max(1,x1-x0)-1,H-1);
+}
+function applyBrush(){
+  if(bx0==null||bx1==null) return;
+  const lo=Math.min(bx0,bx1), hi=Math.max(bx0,bx1);
+  const src = (specSource?.value||'A');
+  const A = currentData||[], B=currentDataB||[];
+  const data = (src==='A'?A:B);
+  if(!data.length) return;
+  // Map brush (0..1) to frame indices
+  const n = data.length;
+  const i0 = Math.max(0, Math.floor(lo*n));
+  const i1 = Math.min(n-1, Math.ceil(hi*n));
+  const sliced = data.slice(i0,i1+1);
+  if(src==='A'){ currentData=sliced; } else { currentDataB=sliced; }
+  renderBoth();
+}
+
+// === v7-pro: Presentation mode ===
+const btnPresent = document.getElementById('btnPresent');
+btnPresent?.addEventListener('click', ()=>{
+  const b = document.body;
+  b.classList.toggle('presentation');
+  Plotly.Plots.resize(plotEl);
+});
+
+// === v7: Fullscreen controls for 3D plot ===
+const plotWrap = document.getElementById('plotWrap');
+const btnFull = document.getElementById('btnFull');
+
+function isFullscreen(){
+  return document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement;
+}
+function requestFs(el){
+  if (el.requestFullscreen) return el.requestFullscreen();
+  if (el.webkitRequestFullscreen) return el.webkitRequestFullscreen();
+  if (el.msRequestFullscreen) return el.msRequestFullscreen();
+}
+function exitFs(){
+  if (document.exitFullscreen) return document.exitFullscreen();
+  if (document.webkitExitFullscreen) return document.webkitExitFullscreen();
+  if (document.msExitFullscreen) return document.msExitFullscreen();
+}
+function toggleFullscreen(){
+  if(isFullscreen()){ exitFs(); }
+  else { requestFs(plotWrap); }
+}
+btnFull?.addEventListener('click', toggleFullscreen);
+plotEl?.addEventListener('dblclick', toggleFullscreen);
+// Keyboard F toggles
+document.addEventListener('keydown', (e)=>{ if(e.key.toLowerCase()==='f'){ toggleFullscreen(); }});
+// Resize Plotly on resize or fullscreen changes
+['resize','orientationchange','fullscreenchange','webkitfullscreenchange','msfullscreenchange'].forEach(ev=>{
+  window.addEventListener(ev, ()=>{ try{ Plotly.Plots.resize(plotEl); }catch{} });
+});
+// Add hover ripple origin for buttons
+document.addEventListener('mousemove', (e)=>{
+  document.querySelectorAll('.btn').forEach(b=>{
+    const rect=b.getBoundingClientRect();
+    const mx=((e.clientX-rect.left)/Math.max(1,rect.width))*100;
+    b.style.setProperty('--mx', mx+'%');
+  });
+});
+
+
 const speak=(t)=>{ if(!toggleTTS.checked) return; const u=new SpeechSynthesisUtterance(t); speechSynthesis.speak(u); };
 
 const state={theme:localStorage.getItem('theme')||'dark',highContrast:localStorage.getItem('contrast')==='1'};
@@ -61,36 +197,6 @@ function applyContrast(){ const root=document.documentElement; if(state.highCont
 btnTheme.onclick=()=>{state.theme=state.theme==='light'?'dark':'light'; applyTheme();};
 btnContrast.onclick=()=>{state.highContrast=!state.highContrast; applyContrast();};
 applyTheme(); applyContrast();
-
-// --- v7: Fullscreen for 3D plot ---
-const btnFull = document.getElementById('btnFull');
-function isFullscreen(){ return document.fullscreenElement != null; }
-function hostEl(){ return plotEl.closest('.fullscreen-host') || plotEl.parentElement; }
-function setPlotHeight(){
-  const h = isFullscreen() ? window.innerHeight - 20 : 520;
-  plotEl.style.height = Math.max(320, h) + 'px';
-  if(window.Plotly && plotEl){ Plotly.Plots.resize(plotEl); }
-}
-async function toggleFullscreen(){
-  const host = hostEl();
-  if(!isFullscreen()){
-    if(host.requestFullscreen) await host.requestFullscreen();
-    host.classList.add('fullscreen-active');
-    plotEl.classList.add('full');
-    btnFull.textContent = '⏹️ Salir de pantalla completa';
-  }else{
-    await document.exitFullscreen();
-    host.classList.remove('fullscreen-active');
-    plotEl.classList.remove('full');
-    btnFull.textContent = '⛶ Pantalla completa';
-  }
-  setTimeout(setPlotHeight, 60);
-}
-btnFull?.addEventListener('click', toggleFullscreen);
-document.addEventListener('fullscreenchange', setPlotHeight);
-window.addEventListener('resize', setPlotHeight);
-
-setPlotHeight();
 
 function getParams(){
   const fs = parseInt(frameSizeEl?.value || 2048);
