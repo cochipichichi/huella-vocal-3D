@@ -3,20 +3,29 @@ const plotEl=document.getElementById('plot');
 const btnSample=document.getElementById('btnSample');
 const fileJson=document.getElementById('fileJson');
 const fileJsonB=document.getElementById('fileJsonB');
+const fileAudio=document.getElementById('fileAudio');
 const fileAudioB=document.getElementById('fileAudioB');
 const clearB=document.getElementById('clearB');
-const statusB=document.getElementById('statusB');
+const btnMic=document.getElementById('btnMic');
 const btnTheme=document.getElementById('btnTheme');
 const btnContrast=document.getElementById('btnContrast');
 const toggleTTS=document.getElementById('toggleTTS');
-// === Panel de parámetros ===
+const statusEl=document.getElementById('status');
+const statusB=document.getElementById('statusB');
+
 const frameSizeEl = document.getElementById('frameSize');
 const hopSizeEl = document.getElementById('hopSize');
 const colorScaleEl = document.getElementById('colorScale');
 const cminEl = document.getElementById('cmin');
 const cmaxEl = document.getElementById('cmax');
 const exportBtn = document.getElementById('exportBtn');
+
 const mapX=document.getElementById('mapX');
+const mapY=document.getElementById('mapY');
+const mapZ=document.getElementById('mapZ');
+const smoothWinEl=document.getElementById('smoothWin');
+const rmsThEl=document.getElementById('rmsTh');
+
 const csA=document.getElementById('csA');
 const csB=document.getElementById('csB');
 const symA=document.getElementById('symA');
@@ -33,21 +42,16 @@ const capturePng=document.getElementById('capturePng');
 const mDist=document.getElementById('mDist');
 const mDTW=document.getElementById('mDTW');
 const mCounts=document.getElementById('mCounts');
-const mapY=document.getElementById('mapY');
-const mapZ=document.getElementById('mapZ');
-const smoothWinEl=document.getElementById('smoothWin');
-const rmsThEl=document.getElementById('rmsTh');
-let currentData = [];
-let currentDataB = [];
-let annotations = [];
-function getParams(){
-  const fs = parseInt(frameSizeEl?.value || 2048);
-  const hop = parseInt(hopSizeEl?.value || 512);
-  const cmin = (parseFloat(cminEl?.value||3000));
-  const cmax = (parseFloat(cmaxEl?.value||10000));
-  const cs = (colorScaleEl?.value || 'Rainbow');
-  return {fs, hop, cmin, cmax, cs};
-}
+
+const specCanvas=document.getElementById('specCanvas');
+const specSource=document.getElementById('specSource');
+const specMin=document.getElementById('specMin');
+const specMax=document.getElementById('specMax');
+const specClear=document.getElementById('specClear');
+
+const presetSelect=document.getElementById('presetSelect');
+const saveSession=document.getElementById('saveSession');
+const historyEl=document.getElementById('history');
 
 const speak=(t)=>{ if(!toggleTTS.checked) return; const u=new SpeechSynthesisUtterance(t); speechSynthesis.speak(u); };
 
@@ -58,113 +62,16 @@ btnTheme.onclick=()=>{state.theme=state.theme==='light'?'dark':'light'; applyThe
 btnContrast.onclick=()=>{state.highContrast=!state.highContrast; applyContrast();};
 applyTheme(); applyContrast();
 
-async function loadJson(url){ const res=await fetch(url); return await res.json(); }
-function toTrace(data, name, cs, symbol, opacity){ const p=getParams(); const x=data.map(d=>d.mx??d.x),y=data.map(d=>d.my??d.y),z=data.map(d=>d.mz??d.z); const size=data.map(d=>4+12*(d.amp??d.rms??0.1)); const color=data.map(d=>Math.max(p.cmin,Math.min(p.cmax,d.f0approx??d.centroid))); return {x,y,z,mode:'markers',type:'scatter3d', marker:{size,color,colorscale:cs||p.cs,cmin:p.cmin,cmax:p.cmax,opacity:opacity??0.85,symbol:symbol||'circle'}, name:name||'frames'};}
-function toLines(data,name){ const x=[],y=[],z=[]; for(let i=1;i<data.length;i++){ const a=data[i-1], b=data[i]; x.push((a.mx??a.x),(b.mx??b.x),null); y.push((a.my??a.y),(b.my??b.y),null); z.push((a.mz??a.z),(b.mz??b.z),null);} return {x,y,z,mode:'lines',type:'scatter3d', line:{width:2},name:name||'trayectoria',hoverinfo:'skip'}; }
-function render(data){ currentData = data; renderBoth(); }
-function renderBoth(){ const A = mapXYZ(currentData||[]); const B = mapXYZ(currentDataB||[]); const traces=[]; const layout={scene:{xaxis:{title:'X'},yaxis:{title:'Y'},zaxis:{title:'Z'},bgcolor:'#000'}, paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(0,0,0,0)',margin:{l:0,r:0,t:0,b:0}, annotations: annotations}; if(A.length){ traces.push(toLines(A,'trayectoria A')); traces.push(toTrace(A,'A', csA?.value||'Turbo', symA?.value||'circle', parseFloat(opA?.value||'0.85'))); } if(B.length){ traces.push(toLines(B,'trayectoria B')); traces.push(toTrace(B,'B', csB?.value||'Viridis', symB?.value||'diamond', parseFloat(opB?.value||'0.85'))); } Plotly.newPlot(plotEl,traces,layout,{displaylogo:false,responsive:true}).then(()=>{updateMetrics(A,B);}); const total=(A.length||0)+(B.length||0); speak('Visualización lista. '+total+' frames.'); }
-btnSample.onclick=()=>renderFromUrl('data/sample_bird_embedding.json');
-fileJson.addEventListener('change',async(e)=>{ const f=e.target.files[0]; if(!f) return; const txt=await f.text(); try{ render(JSON.parse(txt)); }catch(err){ alert('JSON inválido: '+err.message); }});
-async function renderFromUrl(url){ const data=await loadJson(url); render(data); }
-renderFromUrl('data/sample_bird_embedding.json');
-
-
-// === Audio uploader / recorder with Meyda ===
-const fileAudio = document.getElementById('fileAudio');
-const btnMic = document.getElementById('btnMic');
-const statusEl = document.getElementById('status');
-
-function hzToClamp(hz){ return Math.max(3000, Math.min(10000, hz||3000)); }
-
-async function processAudioBuffer(buffer){
-  // Use Meyda offline extraction over frames
-  const sr = buffer.sampleRate;
-  const channel = buffer.getChannelData(0);
-  const frameSize = getParams().fs;
-  const hop = getParams().hop;
-  if(!window.Meyda){ alert('Meyda no disponible (CDN). Conéctate a Internet o usa el JSON.'); return; }
-  const mf = Meyda.createMeydaAnalyzer({ audioContext: null, source: null, bufferSize: frameSize, sampleRate: sr, windowingFunction: 'hamming', featureExtractors: ['rms','zcr','spectralCentroid','spectralRolloff','spectralFlatness','spectralPeaks'] });
-
-  const data = [];
-  for(let i=0;i+frameSize<=channel.length;i+=hop){
-    const frame = channel.slice(i, i+frameSize);
-    const f = mf.extract(null, frame);
-    const amp = Math.max(0.001, f.rms||0);
-    const centroid = (f.spectralCentroid||0);
-    let f0 = 0;
-    if (f.spectralPeaks && f.spectralPeaks.length>0){
-      f0 = f.spectralPeaks[0].frequency;
-    } else {
-      f0 = centroid;
-    }
-    // Map to 3D: x=flatness, y=rolloff, z=centroid (normalized)
-    const x = (f.spectralFlatness||0);
-    const y = (f.spectralRolloff||0)/sr;
-    const z = (centroid||0)/sr;
-    data.push({ t: i/sr, x, y, z, centroid, centroid_norm:(centroid||0)/sr, rolloff:(f.spectralRolloff||0), rolloff_norm:(f.spectralRolloff||0)/sr, flatness:(f.spectralFlatness||0), zcr:(f.zcr||0), amp, rms:amp, f0approx: f0 });
-  }
-  render(data);
+function getParams(){
+  const fs = parseInt(frameSizeEl?.value || 2048);
+  const hop = parseInt(hopSizeEl?.value || 512);
+  const cmin = (parseFloat(cminEl?.value||3000));
+  const cmax = (parseFloat(cmaxEl?.value||10000));
+  const cs = (colorScaleEl?.value || 'Rainbow');
+  return {fs, hop, cmin, cmax, cs};
 }
 
-fileAudio?.addEventListener('change', async (e)=>{
-  const file = e.target.files[0]; if(!file) return;
-  statusEl.textContent = 'Decodificando audio...';
-  const arr = await file.arrayBuffer();
-  const ctx = new (window.AudioContext || window.webkitAudioContext)();
-  const buffer = await ctx.decodeAudioData(arr);
-  statusEl.textContent = 'Procesando frames...';
-  await processAudioBuffer(buffer);
-  statusEl.textContent = 'Listo ✅';
-  ctx.close();
-});
-
-let micStream = null, micCtx = null, meydaMic = null;
-btnMic?.addEventListener('click', async ()=>{
-  if(meydaMic){
-    meydaMic.stop();
-    meydaMic = null;
-    micCtx && micCtx.close();
-    micStream && micStream.getTracks().forEach(t=>t.stop());
-    btnMic.textContent = '🎤 Grabar/Detener';
-    statusEl.textContent = 'Grabación detenida.';
-    return;
-  }
-  try{
-    micStream = await navigator.mediaDevices.getUserMedia({audio:true});
-    micCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const source = micCtx.createMediaStreamSource(micStream);
-    meydaMic = Meyda.createMeydaAnalyzer({audioContext: micCtx, source, bufferSize: getParams().fs, windowingFunction:'hamming', featureExtractors:['rms','zcr','spectralCentroid','spectralRolloff','spectralFlatness','spectralPeaks']});
-    const live = [];
-    meydaMic.start((f)=>{
-      const sr = micCtx.sampleRate;
-      const centroid = f.spectralCentroid||0;
-      const amp = Math.max(0.001, f.rms||0);
-      const f0 = (f.spectralPeaks && f.spectralPeaks[0]) ? f.spectralPeaks[0].frequency : centroid;
-      const x = (f.spectralFlatness||0);
-      const y = (f.spectralRolloff||0)/sr;
-      const z = (centroid||0)/sr;
-      live.push({ t: live.length* (getParams().fs/sr), x, y, z, centroid, centroid_norm:(centroid||0)/sr, rolloff:(f.spectralRolloff||0), rolloff_norm:(f.spectralRolloff||0)/sr, flatness:(f.spectralFlatness||0), zcr:(f.zcr||0), amp, rms:amp, f0approx: f0 });
-      if(live.length % 10 === 0){ render(live); }
-      statusEl.textContent = 'Grabando… frames: '+live.length;
-    });
-    btnMic.textContent = '⏹️ Detener';
-  }catch(err){
-    alert('No se pudo acceder al micrófono: '+err.message);
-  }
-});
-
-// Exportar JSON de la sesión actual
-exportBtn?.addEventListener('click', ()=>{
-  if(!currentData || currentData.length===0){ alert('No hay datos para exportar.'); return; }
-  const blob = new Blob([JSON.stringify(currentData)], {type:'application/json'});
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  const stamp = new Date().toISOString().replace(/[:.]/g,'-');
-  a.download = 'huella_'+stamp+'.json'; a.click();
-});
-// Redibujar al cambiar parámetros visuales
-[colorScaleEl,cminEl,cmaxEl].forEach(el=> el?.addEventListener('change', ()=>{ if(currentData.length) render(currentData); }));
-
-// === helpers v4 ===
+// helpers v4/v5
 function movingAvg(arr, w){
   if(w<=1) return arr;
   const out = new Array(arr.length).fill(0);
@@ -203,46 +110,48 @@ function mapXYZ(data){
   return filtered;
 }
 
-[mapX,mapY,mapZ,smoothWinEl,rmsThEl].forEach(el=> el?.addEventListener('change', ()=>{ renderBoth(); }));
+function toTrace(data, name, cs, symbol, opacity){
+  const p=getParams();
+  const x=data.map(d=>d.mx??d.x),y=data.map(d=>d.my??d.y),z=data.map(d=>d.mz??d.z);
+  const size=data.map(d=>4+12*(d.amp??d.rms??0.1));
+  const color=data.map(d=>Math.max(p.cmin,Math.min(p.cmax,d.f0approx??d.centroid)));
+  return {x,y,z,mode:'markers',type:'scatter3d', marker:{size,color,colorscale:cs||p.cs,cmin:p.cmin,cmax:p.cmax,opacity:opacity??0.85,symbol:symbol||'circle'}, name:name||'frames'};
+}
+function toLines(data,name){
+  const x=[],y=[],z=[];
+  for(let i=1;i<data.length;i++){
+    const a=data[i-1], b=data[i];
+    x.push((a.mx??a.x),(b.mx??b.x),null);
+    y.push((a.my??a.y),(b.my??b.y),null);
+    z.push((a.mz??a.z),(b.mz??b.z),null);
+  }
+  return {x,y,z,mode:'lines',type:'scatter3d', line:{width:2},name:name||'trayectoria',hoverinfo:'skip'};
+}
 
-fileJsonB?.addEventListener('change', async (e)=>{
-  const f = e.target.files[0]; if(!f) return;
-  const txt = await f.text();
-  try{ currentDataB = JSON.parse(txt); renderBoth(); statusB.textContent='JSON B listo ✅'; }catch(err){ alert('JSON B inválido: '+err.message); }
-});
-fileAudioB?.addEventListener('change', async (e)=>{
-  const file = e.target.files[0]; if(!file) return;
-  statusB.textContent = 'Decodificando audio B...';
-  const arr = await file.arrayBuffer();
-  const ctx = new (window.AudioContext || window.webkitAudioContext)();
-  const buffer = await ctx.decodeAudioData(arr);
-  statusB.textContent = 'Procesando frames B...';
-  await processAudioBuffer(buffer).then(()=>{ currentDataB = currentData; renderBoth(); statusB.textContent='Listo B ✅'; });
-  ctx.close();
-});
-clearB?.addEventListener('click', ()=>{ currentDataB = []; renderBoth(); statusB.textContent='B removido.'; });
+let currentData = [];
+let currentDataB = [];
+let annotations = [];
 
+function render(data){ currentData = data; renderBoth(); }
+function renderBoth(){
+  const A = mapXYZ(currentData||[]);
+  const B = mapXYZ(currentDataB||[]);
+  const traces=[];
+  const layout={scene:{xaxis:{title:'X'},yaxis:{title:'Y'},zaxis:{title:'Z'},bgcolor:'#000'}, paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(0,0,0,0)',margin:{l:0,r:0,t:0,b:0}, annotations: annotations};
+  if(A.length){ traces.push(toLines(A,'trayectoria A')); traces.push(toTrace(A,'A', csA?.value||'Turbo', symA?.value||'circle', parseFloat(opA?.value||'0.85'))); }
+  if(B.length){ traces.push(toLines(B,'trayectoria B')); traces.push(toTrace(B,'B', csB?.value||'Viridis', symB?.value||'diamond', parseFloat(opB?.value||'0.85'))); }
+  Plotly.newPlot(plotEl,traces,layout,{displaylogo:false,responsive:true}).then(()=>{updateMetrics(A,B); updateSpectrogram();});
+  const total=(A.length||0)+(B.length||0);
+  speak('Visualización lista. '+total+' frames.');
+}
+
+// Metrics & DTW
 function centroid3D(data){
   if(!data.length) return [0,0,0];
   const sx=data.reduce((a,d)=>a+(d.mx??d.x),0);
   const sy=data.reduce((a,d)=>a+(d.my??d.y),0);
   const sz=data.reduce((a,d)=>a+(d.mz??d.z),0);
   return [sx/data.length, sy/data.length, sz/data.length];
-}
-function updateMetrics(A,B){
-  mCounts.textContent = (A?.length||0)+' / '+(B?.length||0);
-  if((A?.length||0) && (B?.length||0)){
-    const ca=centroid3D(A), cb=centroid3D(B);
-    const dist = Math.sqrt((ca[0]-cb[0])**2 + (ca[1]-cb[1])**2 + (ca[2]-cb[2])**2);
-    mDist.textContent = dist.toFixed(4);
-    // DTW on centroid_norm sequences (fallback to centroid/sr if missing)
-    const sa=A.map(d=> d.centroid_norm ?? (d.centroid||0)/11025);
-    const sb=B.map(d=> d.centroid_norm ?? (d.centroid||0)/11025);
-    mDTW.textContent = dtw(sa,sb).toFixed(4);
-  }else{
-    mDist.textContent = '—';
-    mDTW.textContent = '—';
-  }
 }
 function dtw(a,b){
   const n=a.length, m=b.length;
@@ -254,20 +163,227 @@ function dtw(a,b){
       dp[i][j] = cost + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
     }
   }
-  return dp[n][m]/(n+m); // normalized
+  return dp[n][m]/(n+m);
+}
+function updateMetrics(A,B){
+  mCounts.textContent = (A?.length||0)+' / '+(B?.length||0);
+  if((A?.length||0) && (B?.length||0)){
+    const ca=centroid3D(A), cb=centroid3D(B);
+    const dist = Math.sqrt((ca[0]-cb[0])**2 + (ca[1]-cb[1])**2 + (ca[2]-cb[2])**2);
+    mDist.textContent = dist.toFixed(4);
+    const sa=A.map(d=> d.centroid_norm ?? (d.centroid||0)/11025);
+    const sb=B.map(d=> d.centroid_norm ?? (d.centroid||0)/11025);
+    mDTW.textContent = dtw(sa,sb).toFixed(4);
+  }else{
+    mDist.textContent = '—';
+    mDTW.textContent = '—';
+  }
 }
 
+// Annotations
 function addAnnotation(which){
   const t1=parseFloat(annT1?.value||0), t2=parseFloat(annT2?.value||0);
-  const label = annLabel?.value || (which==='A'?'A':'B');
-  const mid = (t1+t2)/2;
+  const label = annLabel?.value || which;
   annotations.push({xref:'paper', yref:'paper', x:1.02, y: Math.random()*0.9+0.05, text: `${label} [${t1.toFixed(2)}–${t2.toFixed(2)}]s`, showarrow:false, bgcolor:'rgba(255,255,255,0.08)', bordercolor:'rgba(255,255,255,0.18)', borderwidth:1, font:{size:12}});
   renderBoth();
 }
 btnAnnotA?.addEventListener('click', ()=> addAnnotation('A'));
 btnAnnotB?.addEventListener('click', ()=> addAnnotation('B'));
 btnClearAnn?.addEventListener('click', ()=>{ annotations = []; renderBoth(); });
-capturePng?.addEventListener('click', ()=>{
-  Plotly.downloadImage(plotEl, {format:'png', filename:'huella_vocal_3d'});
+capturePng?.addEventListener('click', ()=>{ Plotly.downloadImage(plotEl, {format:'png', filename:'huella_vocal_3d'}); });
+[csA,csB,symA,symB,opA,opB,mapX,mapY,mapZ,smoothWinEl,rmsThEl].forEach(el=> el?.addEventListener('change', ()=> renderBoth()));
+
+// Export JSON
+let currentDataExport = [];
+exportBtn?.addEventListener('click', ()=>{
+  const all = currentDataB?.length ? currentData.concat(currentDataB) : currentData;
+  const blob = new Blob([JSON.stringify(all)], {type:'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  const stamp = new Date().toISOString().replace(/[:.]/g,'-');
+  a.download = 'huella_'+stamp+'.json'; a.click();
 });
-[csA,csB,symA,symB,opA,opB].forEach(el=> el?.addEventListener('change', ()=> renderBoth()));
+
+// Spectrogram from frames (centroid/rolloff proxy)
+function drawSpectrogram(dataset){
+  const ctx = specCanvas.getContext('2d');
+  const W = specCanvas.width, H = specCanvas.height;
+  ctx.fillStyle = '#000'; ctx.fillRect(0,0,W,H);
+  if(!dataset || !dataset.length) return;
+  const minK = parseFloat(specMin.value||0)*1000, maxK = parseFloat(specMax.value||11)*1000;
+  const n = dataset.length;
+  for(let i=0;i<n;i++){
+    const d = dataset[i];
+    const c = d.centroid || 0;
+    const r = d.rolloff || c*1.5;
+    const amp = Math.min(1, Math.max(0, (d.amp||d.rms||0)*4));
+    const x = Math.floor(i * (W/n));
+    const yc = H - Math.floor((c - minK) / (maxK - minK) * H);
+    const yr = H - Math.floor((r - minK) / (maxK - minK) * H);
+    const a1 = 0.35+0.5*amp; const a2 = 0.15+0.3*amp;
+    if(isFinite(yc)){ const yy=Math.min(H-1, Math.max(0, yc-1)); const h=2; 
+      const rcol = Math.floor(255*(amp)); const gcol = Math.floor(180*(1-amp/2)); const bcol = 255;
+      plotPixel(ctx, x, yy, `rgba(${rcol},${gcol},${bcol},${a1})`, 2, h);
+    }
+    if(isFinite(yr)){ const y1 = Math.min(H-1, Math.max(0, yr)); const y2 = Math.min(H-1, Math.max(0, yc)); 
+      ctx.fillStyle = `rgba(80,180,255,${a2})`; ctx.fillRect(x, Math.min(y1,y2), 2, Math.max(1,Math.abs(y2-y1))); }
+  }
+}
+function plotPixel(ctx,x,y,style,w,h){ ctx.fillStyle=style; ctx.fillRect(x,y,w||1,h||1); }
+function updateSpectrogram(){
+  const src = (specSource?.value||'A');
+  const A = mapXYZ(currentData||[]);
+  const B = mapXYZ(currentDataB||[]);
+  drawSpectrogram(src==='A'?A:B);
+}
+[specMin,specMax,specSource].forEach(el=> el?.addEventListener('change', updateSpectrogram));
+specClear?.addEventListener('click', ()=>{ const ctx=specCanvas.getContext('2d'); ctx.fillStyle='#000'; ctx.fillRect(0,0,specCanvas.width,specCanvas.height); });
+
+// Presets
+const PRESETS = {
+  default: {fs:2048, hop:512, mapX:'embed_x', mapY:'embed_y', mapZ:'embed_z', cmin:3000, cmax:10000, cs:'Rainbow', smooth:1, rms:0.02},
+  birdsong_basics: {fs:2048, hop:256, mapX:'centroid_norm', mapY:'rolloff_norm', mapZ:'flatness', cmin:3000, cmax:10000, cs:'Turbo', smooth:5, rms:0.03},
+  formants: {fs:4096, hop:512, mapX:'embed_x', mapY:'centroid_norm', mapZ:'rolloff_norm', cmin:2000, cmax:9000, cs:'Portland', smooth:7, rms:0.02},
+  fast_trills: {fs:1024, hop:256, mapX:'zcr', mapY:'centroid_norm', mapZ:'rms', cmin:3500, cmax:11000, cs:'Viridis', smooth:3, rms:0.04},
+  alarm_calls: {fs:2048, hop:256, mapX:'rms', mapY:'centroid_norm', mapZ:'flatness', cmin:3000, cmax:12000, cs:'Turbo', smooth:5, rms:0.05},
+};
+function applyPreset(p){
+  const s = PRESETS[p] || PRESETS.default;
+  frameSizeEl.value = s.fs; hopSizeEl.value = s.hop;
+  mapX.value = s.mapX; mapY.value = s.mapY; mapZ.value = s.mapZ;
+  cminEl.value = s.cmin; cmaxEl.value = s.cmax; colorScaleEl.value = s.cs;
+  smoothWinEl.value = s.smooth; rmsThEl.value = s.rms;
+  renderBoth();
+}
+presetSelect?.addEventListener('change', ()=> applyPreset(presetSelect.value));
+
+// Persistence
+function saveToLocal(){
+  const name = prompt('Nombre para la sesión (A+B y parámetros):','session_'+new Date().toISOString().slice(0,16));
+  if(!name) return;
+  const payload = {
+    A: currentData, B: currentDataB,
+    params: { theme: state.theme, contrast: state.highContrast, preset: presetSelect?.value || 'default',
+      mapX: mapX.value, mapY: mapY.value, mapZ: mapZ.value, fs: frameSizeEl.value, hop: hopSizeEl.value,
+      cmin: cminEl.value, cmax: cmaxEl.value, cs: colorScaleEl.value, smooth: smoothWinEl.value, rms: rmsThEl.value }
+  };
+  localStorage.setItem('vocal3d_'+name, JSON.stringify(payload));
+  refreshHistory();
+}
+function refreshHistory(){
+  historyEl.innerHTML='';
+  Object.keys(localStorage).filter(k=>k.startsWith('vocal3d_')).sort().forEach(k=>{
+    const btn = document.createElement('button');
+    btn.className='btn'; btn.textContent = '📂 '+k.replace('vocal3d_','');
+    btn.onclick = ()=>{
+      try{ const payload = JSON.parse(localStorage.getItem(k));
+        currentData = payload.A || []; currentDataB = payload.B || [];
+        const p = payload.params||{};
+        state.theme = p.theme || state.theme; applyTheme();
+        state.highContrast = p.contrast ?? state.highContrast; applyContrast();
+        presetSelect.value = p.preset || 'default';
+        mapX.value = p.mapX || mapX.value; mapY.value = p.mapY || mapY.value; mapZ.value = p.mapZ || mapZ.value;
+        frameSizeEl.value = p.fs || frameSizeEl.value; hopSizeEl.value = p.hop || hopSizeEl.value;
+        cminEl.value = p.cmin || cminEl.value; cmaxEl.value = p.cmax || cmaxEl.value; colorScaleEl.value = p.cs || colorScaleEl.value;
+        smoothWinEl.value = p.smooth || smoothWinEl.value; rmsThEl.value = p.rms || rmsThEl.value;
+        renderBoth();
+      }catch(e){ alert('No se pudo abrir la sesión: '+e.message); }
+    };
+    const del = document.createElement('button'); del.className='btn'; del.textContent='🗑️'; del.onclick=()=>{ localStorage.removeItem(k); refreshHistory(); };
+    historyEl.appendChild(btn); historyEl.appendChild(del);
+  });
+}
+saveSession?.addEventListener('click', saveToLocal);
+window.addEventListener('load', refreshHistory);
+
+// Data loaders
+async function loadJson(url){ const res=await fetch(url); return await res.json(); }
+function renderFromUrl(url){ loadJson(url).then(render); }
+btnSample.onclick=()=>renderFromUrl('data/sample_bird_embedding.json');
+
+fileJson?.addEventListener('change',async(e)=>{ const f=e.target.files[0]; if(!f) return; const txt=await f.text(); try{ render(JSON.parse(txt)); statusEl.textContent='JSON A listo ✅'; }catch(err){ alert('JSON inválido: '+err.message); }});
+fileJsonB?.addEventListener('change',async(e)=>{ const f=e.target.files[0]; if(!f) return; const txt=await f.text(); try{ currentDataB=JSON.parse(txt); renderBoth(); statusB.textContent='JSON B listo ✅'; }catch(err){ alert('JSON B inválido: '+err.message); }});
+
+async function processAudioBufferToData(buffer){
+  const sr = buffer.sampleRate;
+  const channel = buffer.getChannelData(0);
+  const frameSize = getParams().fs;
+  const hop = getParams().hop;
+  if(!window.Meyda){ alert('Meyda no disponible (CDN).'); return []; }
+  const mf = Meyda.createMeydaAnalyzer({ audioContext: null, source: null, bufferSize: frameSize, sampleRate: sr, windowingFunction: 'hamming', featureExtractors: ['rms','zcr','spectralCentroid','spectralRolloff','spectralFlatness','spectralPeaks'] });
+  const data = [];
+  for(let i=0;i+frameSize<=channel.length;i+=hop){
+    const frame = channel.slice(i, i+frameSize);
+    const f = mf.extract(null, frame);
+    const amp = Math.max(0.001, f.rms||0);
+    const centroid = (f.spectralCentroid||0);
+    let f0 = (f.spectralPeaks && f.spectralPeaks[0]) ? f.spectralPeaks[0].frequency : centroid;
+    const x = (f.spectralFlatness||0);
+    const y = (f.spectralRolloff||0)/sr;
+    const z = (centroid||0)/sr;
+    data.push({ t: i/sr, x, y, z, centroid, centroid_norm:(centroid||0)/sr, rolloff:(f.spectralRolloff||0), rolloff_norm:(f.spectralRolloff||0)/sr, flatness:(f.spectralFlatness||0), zcr:(f.zcr||0), amp, rms:amp, f0approx: f0 });
+  }
+  return data;
+}
+
+fileAudio?.addEventListener('change', async (e)=>{
+  const file = e.target.files[0]; if(!file) return;
+  statusEl.textContent = 'Decodificando audio...';
+  const arr = await file.arrayBuffer();
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const buffer = await ctx.decodeAudioData(arr);
+  statusEl.textContent = 'Procesando frames...';
+  const data = await processAudioBufferToData(buffer);
+  ctx.close();
+  render(data);
+  statusEl.textContent = 'Listo A ✅';
+});
+
+fileAudioB?.addEventListener('change', async (e)=>{
+  const file = e.target.files[0]; if(!file) return;
+  statusB.textContent = 'Decodificando audio B...';
+  const arr = await file.arrayBuffer();
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const buffer = await ctx.decodeAudioData(arr);
+  statusB.textContent = 'Procesando frames B...';
+  currentDataB = await processAudioBufferToData(buffer);
+  ctx.close();
+  renderBoth();
+  statusB.textContent = 'Listo B ✅';
+});
+
+let micStream = null, micCtx = null, meydaMic = null;
+btnMic?.addEventListener('click', async ()=>{
+  if(meydaMic){
+    meydaMic.stop(); meydaMic = null;
+    micCtx && micCtx.close();
+    micStream && micStream.getTracks().forEach(t=>t.stop());
+    btnMic.textContent = '🎤 Grabar A';
+    statusEl.textContent = 'Grabación detenida.';
+    return;
+  }
+  try{
+    micStream = await navigator.mediaDevices.getUserMedia({audio:true});
+    micCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const source = micCtx.createMediaStreamSource(micStream);
+    meydaMic = Meyda.createMeydaAnalyzer({audioContext: micCtx, source, bufferSize: getParams().fs, windowingFunction:'hamming', featureExtractors:['rms','zcr','spectralCentroid','spectralRolloff','spectralFlatness','spectralPeaks']});
+    const live = [];
+    meydaMic.start((f)=>{
+      const sr = micCtx.sampleRate;
+      const centroid = f.spectralCentroid||0;
+      const amp = Math.max(0.001, f.rms||0);
+      const f0 = (f.spectralPeaks && f.spectralPeaks[0]) ? f.spectralPeaks[0].frequency : centroid;
+      const x = (f.spectralFlatness||0);
+      const y = (f.spectralRolloff||0)/sr;
+      const z = (centroid||0)/sr;
+      live.push({ t: live.length* (getParams().fs/sr), x, y, z, centroid, centroid_norm:(centroid||0)/sr, rolloff:(f.spectralRolloff||0), rolloff_norm:(f.spectralRolloff||0)/sr, flatness:(f.spectralFlatness||0), zcr:(f.zcr||0), amp, rms:amp, f0approx: f0 });
+      if(live.length % 10 === 0){ render(live); }
+      statusEl.textContent = 'Grabando… frames: '+live.length;
+    });
+    btnMic.textContent = '⏹️ Detener';
+  }catch(err){
+    alert('No se pudo acceder al micrófono: '+err.message);
+  }
+});
+
+// Initialize
+renderFromUrl('data/sample_bird_embedding.json');

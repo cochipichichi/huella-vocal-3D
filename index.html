@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Huella Vocal 3D — Birds Demo</title>
+<title>Huella Vocal 3D — Birds Demo (v6)</title>
 <link rel="manifest" href="manifest.json"><meta name="theme-color" content="#0b0b10">
 <link rel="stylesheet" href="css/styles.css"/><link rel="icon" href="assets/favicon.png">
 <script defer src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js"></script>
@@ -13,19 +13,71 @@
 <div class="controls"><button id="btnTheme" class="btn">🌓 Modo</button><button id="btnContrast" class="btn">🦾 Alto contraste</button>
 <label class="btn">🔊 Narrador <input id="toggleTTS" type="checkbox"/></label></div></header>
 <div class="container"><div class="grid">
-<section class="card" style="grid-column:1/-1"><h3>🎛️ Cargar/Seleccionar datos</h3><div class="subgrid"><div class="access"><button id="btnSample" class="btn pulse">📦 Usar muestra</button><label class="btn">📁 Cargar JSON A<input id="fileJson" type="file" accept=".json" hidden/></label><label class="btn">🎵 Cargar audio A<input id="fileAudio" type="file" accept="audio/*" hidden/></label><button id="btnMic" class="btn">🎤 Grabar A</button><span class="badge" id="status"></span></div><div class="access"><label class="btn">📁 Cargar JSON B<input id="fileJsonB" type="file" accept=".json" hidden/></label><label class="btn">🎵 Cargar audio B<input id="fileAudioB" type="file" accept="audio/*" hidden/></label><button id="clearB" class="btn">🧹 Quitar B</button><span class="badge" id="statusB"></span></div></div><div class="panel"><label>🧭 Map X <select id="mapX"><option value="embed_x">embed_x</option><option value="embed_y">embed_y</option><option value="embed_z">embed_z</option><option value="centroid_norm">centroid_norm</option><option value="rolloff_norm">rolloff_norm</option><option value="flatness">flatness</option><option value="zcr">zcr</option><option value="rms">rms</option></select></label><label>Map Y <select id="mapY"><option value="embed_y">embed_y</option><option value="embed_x">embed_x</option><option value="embed_z">embed_z</option><option value="centroid_norm">centroid_norm</option><option value="rolloff_norm">rolloff_norm</option><option value="flatness">flatness</option><option value="zcr">zcr</option><option value="rms">rms</option></select></label><label>Map Z <select id="mapZ"><option value="embed_z">embed_z</option><option value="embed_x">embed_x</option><option value="embed_y">embed_y</option><option value="centroid_norm">centroid_norm</option><option value="rolloff_norm">rolloff_norm</option><option value="flatness">flatness</option><option value="zcr">zcr</option><option value="rms">rms</option></select></label><label>Suavizado (frames) <input id="smoothWin" type="number" min="1" max="51" step="2" value="1"/></label><label>Umbral RMS <input id="rmsTh" type="number" min="0" max="1" step="0.01" value="0.02"/></label></div>
+<section class="card" style="grid-column:1/-1"><h3>🎛️ Cargar/Seleccionar datos</h3>
+<div class="subgrid">
 <div class="access">
-  <label class="btn">🎵 Cargar audio<input id="fileAudio" type="file" accept="audio/*" hidden/></label>
-  <button id="btnMic" class="btn">🎤 Grabar/Detener</button>
-  <span class="badge" id="status"></span>
+<button id="btnSample" class="btn pulse">📦 Usar muestra</button>
+<label class="btn">📁 Cargar JSON A<input id="fileJson" type="file" accept=".json" hidden/></label>
+<label class="btn">🎵 Cargar audio A<input id="fileAudio" type="file" accept="audio/*" hidden/></label>
+<button id="btnMic" class="btn">🎤 Grabar A</button>
+<span class="badge" id="status"></span>
 </div>
-<div class="access"><button id="btnSample" class="btn pulse">📦 Usar muestra</button>
-<label class="btn">📁 Cargar JSON<input id="fileJson" type="file" accept=".json" hidden/></label></div>
-<p class="badge">Formato: lista de objetos con t,x,y,z, centroid, amp, f0approx.</p></section>
+<div class="access">
+<label class="btn">📁 Cargar JSON B<input id="fileJsonB" type="file" accept=".json" hidden/></label>
+<label class="btn">🎵 Cargar audio B<input id="fileAudioB" type="file" accept="audio/*" hidden/></label>
+<button id="clearB" class="btn">🧹 Quitar B</button>
+<span class="badge" id="statusB"></span>
+</div>
+</div>
+<p class="badge">Formato JSON: lista de objetos con campos t,x,y,z, centroid, rolloff, amp/rms, f0approx (opcionalmente centroid_norm, rolloff_norm, flatness, zcr).</p>
+</section>
+
 <section class="card" style="grid-column:1/-1"><h3>📈 Nube espaciotemporal (3D)</h3>
-<div class="colorbar" title="3–10 kHz"></div><div class="panel"><label>Frame size <input id="frameSize" type="number" min="256" max="4096" step="256" value="2048"/></label><label>Hop <input id="hopSize" type="number" min="128" max="2048" step="128" value="512"/></label><label>Color scale <select id="colorScale"><option>Rainbow</option><option>Viridis</option><option>Portland</option><option>Turbo</option></select></label><label>cmin kHz <input id="cmin" type="number" min="0" max="20000" step="100" value="3000"/></label><label>cmax kHz <input id="cmax" type="number" min="1000" max="24000" step="100" value="10000"/></label><button id="exportBtn" class="btn">💾 Exportar JSON</button></div><div id="plot"></div></section>
+<div class="colorbar" title="3–10 kHz"></div>
+<div class="panel">
+<label>Frame size <input id="frameSize" type="number" min="256" max="4096" step="256" value="2048"/></label>
+<label>Hop <input id="hopSize" type="number" min="128" max="2048" step="128" value="512"/></label>
+<label>Color scale <select id="colorScale"><option>Rainbow</option><option>Viridis</option><option>Portland</option><option>Turbo</option></select></label>
+<label>cmin Hz <input id="cmin" type="number" min="0" max="20000" step="100" value="3000"/></label>
+<label>cmax Hz <input id="cmax" type="number" min="1000" max="24000" step="100" value="10000"/></label>
+<button id="exportBtn" class="btn">💾 Exportar JSON</button>
+</div>
+<div class="panel">
+<label>🧭 Map X <select id="mapX"><option value="embed_x">embed_x</option><option value="embed_y">embed_y</option><option value="embed_z">embed_z</option><option value="centroid_norm">centroid_norm</option><option value="rolloff_norm">rolloff_norm</option><option value="flatness">flatness</option><option value="zcr">zcr</option><option value="rms">rms</option></select></label>
+<label>Map Y <select id="mapY"><option value="embed_y">embed_y</option><option value="embed_x">embed_x</option><option value="embed_z">embed_z</option><option value="centroid_norm">centroid_norm</option><option value="rolloff_norm">rolloff_norm</option><option value="flatness">flatness</option><option value="zcr">zcr</option><option value="rms">rms</option></select></label>
+<label>Map Z <select id="mapZ"><option value="embed_z">embed_z</option><option value="embed_x">embed_x</option><option value="embed_y">embed_y</option><option value="centroid_norm">centroid_norm</option><option value="rolloff_norm">rolloff_norm</option><option value="flatness">flatness</option><option value="zcr">zcr</option><option value="rms">rms</option></select></label>
+<label>Suavizado (frames) <input id="smoothWin" type="number" min="1" max="51" step="2" value="1"/></label>
+<label>Umbral RMS <input id="rmsTh" type="number" min="0" max="1" step="0.01" value="0.02"/></label>
+</div>
+<div id="plot"></div></section>
+
+<section class="card" style="grid-column:1/-1">
+  <h3>🌈 Espectrograma sincronizado</h3>
+  <div id="specWrap">
+    <div class="spec-toolbar">
+      <label>Fuente <select id="specSource"><option value="A">A</option><option value="B">B</option></select></label>
+      <label>Rango (kHz) <input id="specMin" type="number" value="0" step="0.1"/>–<input id="specMax" type="number" value="11" step="0.1"/></label>
+      <button id="specClear" class="btn">🧹 Limpiar</button>
+    </div>
+    <canvas id="specCanvas" width="1000" height="260"></canvas>
+  </div>
+</section>
+
 <section class="card" style="grid-column:1/-1">
   <h3>🧰 Herramientas A/B & Anotaciones</h3>
+  <div class="spec-toolbar">
+    <label>🎛️ Perfil de análisis
+      <select id="presetSelect" class="preset">
+        <option value="default">Default</option>
+        <option value="birdsong_basics">Birdsong basics</option>
+        <option value="formants">Formantes</option>
+        <option value="fast_trills">Trinos rápidos</option>
+        <option value="alarm_calls">Llamadas de alarma</option>
+      </select>
+    </label>
+    <button id="saveSession" class="btn">💾 Guardar sesión</button>
+    <div class="history" id="history"></div>
+  </div>
   <div class="grid">
     <div class="legendCard">
       <strong>Ajustes A</strong>
@@ -67,8 +119,6 @@
     <div class="box"><button id="capturePng" class="btn">📸 Capturar PNG</button></div>
   </div>
 </section>
-<section class="card"><h3>ℹ️ Qué ves</h3><p>Posición (x,y,z) = reducción UMAP/t‑SNE; color = frecuencia dominante; tamaño/brillo = amplitud. Las líneas unen frames consecutivos.</p></section>
-<section class="card"><h3>🧪 Tip</h3><p>Genera tus datos con <code>backend/extract_features.py</code> y copia el JSON a <code>public/data/</code>.</p></section>
 </div></div>
 <footer>© 2025 — Demo educativa.</footer>
 <script type="module" src="js/app.js"></script>
