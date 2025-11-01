@@ -1,0 +1,1 @@
+self.addEventListener('install',e=>{e.waitUntil(caches.open('vocal3d-cache').then(c=>c.addAll(['./','./index.html','./css/styles.css','./js/app.js','./data/sample_bird_embedding.json'])))}); self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)));});

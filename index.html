@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Huella Vocal 3D — Birds Demo</title>
+<link rel="manifest" href="manifest.json"><meta name="theme-color" content="#0b0b10">
+<link rel="stylesheet" href="css/styles.css"/><link rel="icon" href="assets/favicon.png">
+<script defer src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js"></script>
+</head>
+<body>
+<header class="header"><div class="brand"><div class="logo">🕊</div><h1>Huella Vocal 3D — Birds Demo</h1></div>
+<div class="controls"><button id="btnTheme" class="btn">🌓 Modo</button><button id="btnContrast" class="btn">🦾 Alto contraste</button>
+<label class="btn">🔊 Narrador <input id="toggleTTS" type="checkbox"/></label></div></header>
+<div class="container"><div class="grid">
+<section class="card" style="grid-column:1/-1"><h3>🎛️ Cargar/Seleccionar datos</h3>
+<div class="access"><button id="btnSample" class="btn pulse">📦 Usar muestra</button>
+<label class="btn">📁 Cargar JSON<input id="fileJson" type="file" accept=".json" hidden/></label></div>
+<p class="badge">Formato: lista de objetos con t,x,y,z, centroid, amp, f0approx.</p></section>
+<section class="card" style="grid-column:1/-1"><h3>📈 Nube espaciotemporal (3D)</h3>
+<div class="colorbar" title="3–10 kHz"></div><div id="plot"></div></section>
+<section class="card"><h3>ℹ️ Qué ves</h3><p>Posición (x,y,z) = reducción UMAP/t‑SNE; color = frecuencia dominante; tamaño/brillo = amplitud. Las líneas unen frames consecutivos.</p></section>
+<section class="card"><h3>🧪 Tip</h3><p>Genera tus datos con <code>backend/extract_features.py</code> y copia el JSON a <code>public/data/</code>.</p></section>
+</div></div>
+<footer>© 2025 — Demo educativa.</footer>
+<script type="module" src="js/app.js"></script>
+<script>if('serviceWorker'in navigator){navigator.serviceWorker.register('sw.js');}</script>
+</body></html>
