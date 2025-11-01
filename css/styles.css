@@ -78,7 +78,6 @@ body{
 
 /* Fullscreen plot tweaks */
 #plotWrap{ position:relative; }
-#btnFull{ position:absolute; right:12px; top:12px; z-index:5; }
 #plot.fullscreen-active{
   height: calc(100vh - 24px) !important;
   border-radius: 0;
@@ -103,3 +102,20 @@ body.presentation #plot{ height: calc(100vh - 20px) !important; border-radius: 0
 .modal .row input,.modal .row select{min-width:160px}
 
 #btnFull{z-index:60!important;} #btnPresent{z-index:59!important;}
+
+/* v8.1.1 unified buttons */
+#btnFull{position:absolute;right:12px;top:12px;z-index:60!important}
+#btnPresent{position:absolute;right:12px;top:56px;z-index:59!important}
+
+/* v8.1.1 fullscreen robust */
+#plot{transition:height .25s ease,border-radius .25s ease,box-shadow .25s ease;box-shadow:0 12px 32px rgba(0,0,0,.45)}
+:fullscreen #plot, :-webkit-full-screen #plot{height:100vh!important;height:100svh!important;height:100dvh!important;border-radius:0}
+:fullscreen #plotWrap, :-webkit-full-screen #plotWrap{inset:0}
+#plot.fullscreen-active{height:calc(100vh - 24px)!important;height:calc(100svh - 24px)!important;height:calc(100dvh - 24px)!important;border-radius:0}
+
+/* v8.1.1 presentation polish */
+body.presentation, body.presentation html{overflow:hidden}
+body.presentation .container{max-width:100%;padding:8px}
+
+/* v8.1.1 spec toolbar wrap */
+.spec-toolbar{row-gap:.4rem}
