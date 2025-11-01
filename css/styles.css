@@ -101,3 +101,5 @@ body.presentation #plot{ height: calc(100vh - 20px) !important; border-radius: 0
 .modal .panel h3{margin-top:0}
 .modal .row{display:flex;align-items:center;justify-content:space-between;gap:.6rem;margin:.4rem 0}
 .modal .row input,.modal .row select{min-width:160px}
+
+#btnFull{z-index:60!important;} #btnPresent{z-index:59!important;}
