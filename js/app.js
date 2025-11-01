@@ -22,3 +22,88 @@ btnSample.onclick=()=>renderFromUrl('data/sample_bird_embedding.json');
 fileJson.addEventListener('change',async(e)=>{ const f=e.target.files[0]; if(!f) return; const txt=await f.text(); try{ render(JSON.parse(txt)); }catch(err){ alert('JSON inválido: '+err.message); }});
 async function renderFromUrl(url){ const data=await loadJson(url); render(data); }
 renderFromUrl('data/sample_bird_embedding.json');
+
+
+// === Audio uploader / recorder with Meyda ===
+const fileAudio = document.getElementById('fileAudio');
+const btnMic = document.getElementById('btnMic');
+const statusEl = document.getElementById('status');
+
+function hzToClamp(hz){ return Math.max(3000, Math.min(10000, hz||3000)); }
+
+async function processAudioBuffer(buffer){
+  // Use Meyda offline extraction over frames
+  const sr = buffer.sampleRate;
+  const channel = buffer.getChannelData(0);
+  const frameSize = 2048;
+  const hop = 512;
+  if(!window.Meyda){ alert('Meyda no disponible (CDN). Conéctate a Internet o usa el JSON.'); return; }
+  const mf = Meyda.createMeydaAnalyzer({ audioContext: null, source: null, bufferSize: frameSize, sampleRate: sr, windowingFunction: 'hamming', featureExtractors: ['rms','zcr','spectralCentroid','spectralRolloff','spectralFlatness','spectralPeaks'] });
+
+  const data = [];
+  for(let i=0;i+frameSize<=channel.length;i+=hop){
+    const frame = channel.slice(i, i+frameSize);
+    const f = mf.extract(null, frame);
+    const amp = Math.max(0.001, f.rms||0);
+    const centroid = (f.spectralCentroid||0);
+    let f0 = 0;
+    if (f.spectralPeaks && f.spectralPeaks.length>0){
+      f0 = f.spectralPeaks[0].frequency;
+    } else {
+      f0 = centroid;
+    }
+    // Map to 3D: x=flatness, y=rolloff, z=centroid (normalized)
+    const x = (f.spectralFlatness||0);
+    const y = (f.spectralRolloff||0)/sr;
+    const z = (centroid||0)/sr;
+    data.push({ t: i/sr, x, y, z, centroid, amp, f0approx: f0 });
+  }
+  render(data);
+}
+
+fileAudio?.addEventListener('change', async (e)=>{
+  const file = e.target.files[0]; if(!file) return;
+  statusEl.textContent = 'Decodificando audio...';
+  const arr = await file.arrayBuffer();
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const buffer = await ctx.decodeAudioData(arr);
+  statusEl.textContent = 'Procesando frames...';
+  await processAudioBuffer(buffer);
+  statusEl.textContent = 'Listo ✅';
+  ctx.close();
+});
+
+let micStream = null, micCtx = null, meydaMic = null;
+btnMic?.addEventListener('click', async ()=>{
+  if(meydaMic){
+    meydaMic.stop();
+    meydaMic = null;
+    micCtx && micCtx.close();
+    micStream && micStream.getTracks().forEach(t=>t.stop());
+    btnMic.textContent = '🎤 Grabar/Detener';
+    statusEl.textContent = 'Grabación detenida.';
+    return;
+  }
+  try{
+    micStream = await navigator.mediaDevices.getUserMedia({audio:true});
+    micCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const source = micCtx.createMediaStreamSource(micStream);
+    meydaMic = Meyda.createMeydaAnalyzer({audioContext: micCtx, source, bufferSize: 2048, windowingFunction:'hamming', featureExtractors:['rms','spectralCentroid','spectralRolloff','spectralFlatness','spectralPeaks']});
+    const live = [];
+    meydaMic.start((f)=>{
+      const sr = micCtx.sampleRate;
+      const centroid = f.spectralCentroid||0;
+      const amp = Math.max(0.001, f.rms||0);
+      const f0 = (f.spectralPeaks && f.spectralPeaks[0]) ? f.spectralPeaks[0].frequency : centroid;
+      const x = (f.spectralFlatness||0);
+      const y = (f.spectralRolloff||0)/sr;
+      const z = (centroid||0)/sr;
+      live.push({ t: live.length* (2048/sr), x, y, z, centroid, amp, f0approx: f0 });
+      if(live.length % 10 === 0){ render(live); }
+      statusEl.textContent = 'Grabando… frames: '+live.length;
+    });
+    btnMic.textContent = '⏹️ Detener';
+  }catch(err){
+    alert('No se pudo acceder al micrófono: '+err.message);
+  }
+});

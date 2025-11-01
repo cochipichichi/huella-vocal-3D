@@ -6,6 +6,7 @@
 <link rel="manifest" href="manifest.json"><meta name="theme-color" content="#0b0b10">
 <link rel="stylesheet" href="css/styles.css"/><link rel="icon" href="assets/favicon.png">
 <script defer src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/meyda/dist/web/meyda.min.js"></script>
 </head>
 <body>
 <header class="header"><div class="brand"><div class="logo">🕊</div><h1>Huella Vocal 3D — Birds Demo</h1></div>
@@ -13,6 +14,11 @@
 <label class="btn">🔊 Narrador <input id="toggleTTS" type="checkbox"/></label></div></header>
 <div class="container"><div class="grid">
 <section class="card" style="grid-column:1/-1"><h3>🎛️ Cargar/Seleccionar datos</h3>
+<div class="access">
+  <label class="btn">🎵 Cargar audio<input id="fileAudio" type="file" accept="audio/*" hidden/></label>
+  <button id="btnMic" class="btn">🎤 Grabar/Detener</button>
+  <span class="badge" id="status"></span>
+</div>
 <div class="access"><button id="btnSample" class="btn pulse">📦 Usar muestra</button>
 <label class="btn">📁 Cargar JSON<input id="fileJson" type="file" accept=".json" hidden/></label></div>
 <p class="badge">Formato: lista de objetos con t,x,y,z, centroid, amp, f0approx.</p></section>
