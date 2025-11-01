@@ -24,3 +24,8 @@ footer{opacity:.8;font-size:.85rem;padding:20px;text-align:center}
 input[type=range]{width:160px}
 #plot{width:100%;height:520px;border-radius:18px;overflow:hidden;background:#000}
 .hidden{display:none}
+
+.panel{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin:.4rem 0}
+.panel label{font-size:.85rem;opacity:.9}
+.panel input,.panel select{padding:.3rem .5rem;border-radius:10px;border:1px solid rgba(255,255,255,.18);background:var(--card);color:var(--fg)}
+    

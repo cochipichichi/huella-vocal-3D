@@ -5,6 +5,23 @@ const fileJson=document.getElementById('fileJson');
 const btnTheme=document.getElementById('btnTheme');
 const btnContrast=document.getElementById('btnContrast');
 const toggleTTS=document.getElementById('toggleTTS');
+// === Panel de parámetros ===
+const frameSizeEl = document.getElementById('frameSize');
+const hopSizeEl = document.getElementById('hopSize');
+const colorScaleEl = document.getElementById('colorScale');
+const cminEl = document.getElementById('cmin');
+const cmaxEl = document.getElementById('cmax');
+const exportBtn = document.getElementById('exportBtn');
+let currentData = [];
+function getParams(){
+  const fs = parseInt(frameSizeEl?.value || 2048);
+  const hop = parseInt(hopSizeEl?.value || 512);
+  const cmin = (parseFloat(cminEl?.value||3000));
+  const cmax = (parseFloat(cmaxEl?.value||10000));
+  const cs = (colorScaleEl?.value || 'Rainbow');
+  return {fs, hop, cmin, cmax, cs};
+}
+
 const speak=(t)=>{ if(!toggleTTS.checked) return; const u=new SpeechSynthesisUtterance(t); speechSynthesis.speak(u); };
 
 const state={theme:localStorage.getItem('theme')||'dark',highContrast:localStorage.getItem('contrast')==='1'};
@@ -15,9 +32,9 @@ btnContrast.onclick=()=>{state.highContrast=!state.highContrast; applyContrast()
 applyTheme(); applyContrast();
 
 async function loadJson(url){ const res=await fetch(url); return await res.json(); }
-function toTrace(data){ const x=data.map(d=>d.x),y=data.map(d=>d.y),z=data.map(d=>d.z); const size=data.map(d=>4+12*(d.amp??0.1)); const color=data.map(d=>Math.max(3000,Math.min(10000,d.f0approx??d.centroid))); return {x,y,z,mode:'markers',type:'scatter3d', marker:{size,color,colorscale:'Rainbow',cmin:3000,cmax:10000,opacity:0.9}, name:'frames'};}
+function toTrace(data){ const p=getParams(); const x=data.map(d=>d.x),y=data.map(d=>d.y),z=data.map(d=>d.z); const size=data.map(d=>4+12*(d.amp??0.1)); const color=data.map(d=>Math.max(p.cmin,Math.min(p.cmax,d.f0approx??d.centroid))); return {x,y,z,mode:'markers',type:'scatter3d', marker:{size,color,colorscale:p.cs,cmin:p.cmin,cmax:p.cmax,opacity:0.9}, name:'frames'};}
 function toLines(data){ const x=[],y=[],z=[]; for(let i=1;i<data.length;i++){ x.push(data[i-1].x,data[i].x,null); y.push(data[i-1].y,data[i].y,null); z.push(data[i-1].z,data[i].z,null);} return {x,y,z,mode:'lines',type:'scatter3d', line:{width:2},name:'trayectoria',hoverinfo:'skip'}; }
-function render(data){ const layout={scene:{xaxis:{title:'X'},yaxis:{title:'Y'},zaxis:{title:'Z'},bgcolor:'#000'}, paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(0,0,0,0)',margin:{l:0,r:0,t:0,b:0}}; Plotly.newPlot(plotEl,[toLines(data),toTrace(data)],layout,{displaylogo:false,responsive:true}); speak('Visualización lista. '+data.length+' frames.'); }
+function render(data){ currentData = data; const layout={scene:{xaxis:{title:'X'},yaxis:{title:'Y'},zaxis:{title:'Z'},bgcolor:'#000'}, paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(0,0,0,0)',margin:{l:0,r:0,t:0,b:0}}; Plotly.newPlot(plotEl,[toLines(data),toTrace(data)],layout,{displaylogo:false,responsive:true}); speak('Visualización lista. '+data.length+' frames.'); }
 btnSample.onclick=()=>renderFromUrl('data/sample_bird_embedding.json');
 fileJson.addEventListener('change',async(e)=>{ const f=e.target.files[0]; if(!f) return; const txt=await f.text(); try{ render(JSON.parse(txt)); }catch(err){ alert('JSON inválido: '+err.message); }});
 async function renderFromUrl(url){ const data=await loadJson(url); render(data); }
@@ -35,8 +52,8 @@ async function processAudioBuffer(buffer){
   // Use Meyda offline extraction over frames
   const sr = buffer.sampleRate;
   const channel = buffer.getChannelData(0);
-  const frameSize = 2048;
-  const hop = 512;
+  const frameSize = getParams().fs;
+  const hop = getParams().hop;
   if(!window.Meyda){ alert('Meyda no disponible (CDN). Conéctate a Internet o usa el JSON.'); return; }
   const mf = Meyda.createMeydaAnalyzer({ audioContext: null, source: null, bufferSize: frameSize, sampleRate: sr, windowingFunction: 'hamming', featureExtractors: ['rms','zcr','spectralCentroid','spectralRolloff','spectralFlatness','spectralPeaks'] });
 
@@ -107,3 +124,14 @@ btnMic?.addEventListener('click', async ()=>{
     alert('No se pudo acceder al micrófono: '+err.message);
   }
 });
+
+// Exportar JSON de la sesión actual
+exportBtn?.addEventListener('click', ()=>{
+  if(!currentData || currentData.length===0){ alert('No hay datos para exportar.'); return; }
+  const blob = new Blob([JSON.stringify(currentData)], {type:'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  const stamp = new Date().toISOString().replace(/[:.]/g,'-');
+  a.download = 'huella_'+stamp+'.json'; a.click();
+});
+// Redibujar al cambiar parámetros visuales
+[colorScaleEl,cminEl,cmaxEl].forEach(el=> el?.addEventListener('change', ()=>{ if(currentData.length) render(currentData); }));
