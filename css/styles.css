@@ -29,3 +29,13 @@ input[type=range]{width:160px}
 .panel label{font-size:.85rem;opacity:.9}
 .panel input,.panel select{padding:.3rem .5rem;border-radius:10px;border:1px solid rgba(255,255,255,.18);background:var(--card);color:var(--fg)}
     
+.subgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.5rem;width:100%}
+.subgrid .btn{width:100%}
+.legend{display:flex;gap:.6rem;align-items:center}
+.legend .dot{width:12px;height:12px;border-radius:50%}
+    
+.legendCard{display:flex;flex-direction:column;gap:.4rem;background:var(--card);padding:.8rem;border-radius:14px;border:1px solid rgba(255,255,255,.08)}
+.legendRow{display:flex;gap:.5rem;align-items:center;justify-content:space-between}
+.legendRow .swatch{width:18px;height:18px;border-radius:6px;background:#888}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:.6rem}
+.metrics .box{background:var(--card);padding:.8rem;border-radius:14px;border:1px solid rgba(255,255,255,.08)}
