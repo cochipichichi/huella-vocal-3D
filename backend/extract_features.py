@@ -15,7 +15,7 @@ def main():
     emb=umap.UMAP(n_components=3, n_neighbors=30, min_dist=0.1, random_state=42).fit_transform(MFCC)
     hop_t=a.hop/sr
     data=[{"t":round(i*hop_t,4),"x":float(emb[i,0]),"y":float(emb[i,1]),"z":float(emb[i,2]),
-           "centroid":float(centroid[min(i,len(centroid)-1)]),"amp":float(amp[min(i,len(amp)-1)]),"f0approx":float(fdom[min(i,len(fdom)-1)])}
+           "centroid":float(centroid[min(i,len(centroid)-1)]),"amp":float(amp[min(i,len(amp)-1)]),"rms":float(amp[min(i,len(amp)-1)]),"f0approx":float(fdom[min(i,len(fdom)-1)])}
            for i in range(emb.shape[0])]
     with open(a.out,'w') as f: json.dump(data,f)
     print('Wrote',a.out,'frames',len(data))
