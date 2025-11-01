@@ -45,3 +45,21 @@ input[type=range]{width:160px}
 .history{display:flex;gap:.4rem;flex-wrap:wrap}
 .history .btn{font-size:.85rem}
 .preset{min-width:180px}
+
+/* unified buttons v8.1.1 */
+#plotWrap{ position: relative; }
+#btnFull{ position: absolute; right: 12px; top: 12px; z-index: 60 !important; }
+#btnPresent{ position: absolute; right: 12px; top: 56px; z-index: 59 !important; }
+
+/* fullscreen robust v8.1.1 */
+#plot{ transition: height .25s ease, border-radius .25s ease, box-shadow .25s ease; box-shadow: 0 12px 32px rgba(0,0,0,.45); }
+:fullscreen #plot, :-webkit-full-screen #plot{ height: 100vh !important; height: 100svh !important; height: 100dvh !important; border-radius: 0; }
+:fullscreen #plotWrap, :-webkit-full-screen #plotWrap{ inset: 0; }
+#plot.fullscreen-active{ height: calc(100vh - 24px) !important; height: calc(100svh - 24px) !important; height: calc(100dvh - 24px) !important; border-radius: 0; }
+
+/* presentation polish v8.1.1 */
+body.presentation, body.presentation html{ overflow: hidden; }
+body.presentation .container{ max-width: 100%; padding: 8px; }
+
+/* spec toolbar wrap v8.1.1 */
+.spec-toolbar{ row-gap: .4rem; }
