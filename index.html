@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Huella Vocal 3D — Birds Demo (v6)</title>
+<title>Huella Vocal 3D — Birds (v6)</title>
 <link rel="manifest" href="manifest.json"><meta name="theme-color" content="#0b0b10">
 <link rel="stylesheet" href="css/styles.css"/><link rel="icon" href="assets/favicon.png">
 <script defer src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js"></script>
@@ -10,8 +10,8 @@
 <script defer src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 </head>
 <body>
-<header class="header"><div class="brand"><div class="logo">🕊</div><h1>Huella Vocal 3D — Birds Demo</h1></div>
-<div class="controls"><button id="btnTheme" class="btn">🌓 Modo</button><button id="btnContrast" class="btn">🦾 Alto contraste</button>
+<header class="header"><div class="brand"><div class="logo">🕊</div><h1>Huella Vocal 3D — Birds</h1></div>
+<div class="controls"><button id="btnSettings" class="btn">⚙️ Ajustes</button><button id="btnTheme" class="btn">🌓 Modo</button><button id="btnContrast" class="btn">🦾 Alto contraste</button>
 <label class="btn">🔊 Narrador <input id="toggleTTS" type="checkbox"/></label></div></header>
 <div class="container"><div class="grid">
 <section class="card" style="grid-column:1/-1"><h3>🎛️ Cargar/Seleccionar datos</h3>
@@ -121,7 +121,27 @@
   </div>
 </section>
 </div></div>
-<footer>© 2025 — Demo educativa.</footer>
+<footer>© 2025 — Neotech EduLab · Huella Vocal 3D · v8 · <a href="pages/about.html">Acerca de</a> · <a href="pages/privacidad.html">Privacidad</a> · <a href="pages/docs.html">Docs</a></footer>
 <script type="module" src="js/app.js"></script>
 <script>if('serviceWorker'in navigator){navigator.serviceWorker.register('sw.js');}</script>
+
+<div id="settingsModal" class="modal">
+  <div class="panel">
+    <h3>⚙️ Ajustes</h3>
+    <div class="row"><span>Tema inicial</span><select id="setTheme"><option value="dark">Oscuro</option><option value="light">Claro</option></select></div>
+    <div class="row"><span>Alto contraste</span><input type="checkbox" id="setContrast"/></div>
+    <div class="row"><span>Narrador</span><input type="checkbox" id="setTTS"/></div>
+    <div class="row"><span>Perfil de análisis</span>
+      <select id="setPreset"><option value="default">Default</option><option value="birdsong_basics">Birdsong basics</option><option value="formants">Formantes</option><option value="fast_trills">Trinos rápidos</option><option value="alarm_calls">Llamadas de alarma</option></select>
+    </div>
+    <div class="row"><span>Map X</span><select id="setMapX"><option>embed_x</option><option>embed_y</option><option>embed_z</option><option>centroid_norm</option><option>rolloff_norm</option><option>flatness</option><option>zcr</option><option>rms</option></select></div>
+    <div class="row"><span>Map Y</span><select id="setMapY"><option>embed_y</option><option>embed_x</option><option>embed_z</option><option>centroid_norm</option><option>rolloff_norm</option><option>flatness</option><option>zcr</option><option>rms</option></select></div>
+    <div class="row"><span>Map Z</span><select id="setMapZ"><option>embed_z</option><option>embed_x</option><option>embed_y</option><option>centroid_norm</option><option>rolloff_norm</option><option>flatness</option><option>zcr</option><option>rms</option></select></div>
+    <div class="row"><span>Suavizado</span><input id="setSmooth" type="number" min="1" max="51" step="2" value="1"/></div>
+    <div class="row"><span>Umbral RMS</span><input id="setRmsTh" type="number" min="0" max="1" step="0.01" value="0.02"/></div>
+    <div class="row"><span>Colorscale</span><select id="setCS"><option>Rainbow</option><option>Viridis</option><option>Portland</option><option>Turbo</option></select></div>
+    <div class="row"><span>Presentación al abrir</span><input type="checkbox" id="setPresentation"/></div>
+    <div class="row" style="justify-content:flex-end;gap:.5rem"><button id="setReset" class="btn">Restablecer</button><button id="setCancel" class="btn">Cancelar</button><button id="setSave" class="btn">Guardar</button></div>
+  </div>
+</div>
 </body></html>

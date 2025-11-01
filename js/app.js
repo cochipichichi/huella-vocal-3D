@@ -431,6 +431,72 @@ function refreshHistory(){
 saveSession?.addEventListener('click', saveToLocal);
 window.addEventListener('load', refreshHistory);
 
+// v8 Settings + Config
+const btnSettings=document.getElementById('btnSettings');
+const modal=document.getElementById('settingsModal');
+const setTheme=document.getElementById('setTheme');
+const setContrast=document.getElementById('setContrast');
+const setTTS=document.getElementById('setTTS');
+const setPreset=document.getElementById('setPreset');
+const setMapX=document.getElementById('setMapX');
+const setMapY=document.getElementById('setMapY');
+const setMapZ=document.getElementById('setMapZ');
+const setSmooth=document.getElementById('setSmooth');
+const setRmsTh=document.getElementById('setRmsTh');
+const setCS=document.getElementById('setCS');
+const setPresentation=document.getElementById('setPresentation');
+const setSave=document.getElementById('setSave');
+const setCancel=document.getElementById('setCancel');
+const setReset=document.getElementById('setReset');
+
+const CFG_DEFAULT={ enablePro:true, enableMic:true, enablePDF:true, version:'v8' };
+async function loadConfig(){ try{ const r=await fetch('app-config.json'); const c=await r.json(); return Object.assign({},CFG_DEFAULT,c); } catch{ return CFG_DEFAULT; } }
+let APP_CFG=CFG_DEFAULT;
+
+function openModal(){ modal?.classList.add('open'); }
+function closeModal(){ modal?.classList.remove('open'); }
+function prefsGet(){ try{ return JSON.parse(localStorage.getItem('vocal3d_prefs')||'{}'); }catch{ return {}; } }
+function prefsSet(p){ try{ localStorage.setItem('vocal3d_prefs', JSON.stringify(p||{})); }catch{} }
+
+function applyPrefs(){
+  const p=prefsGet();
+  if(p.theme){ state.theme=p.theme; applyTheme(); }
+  if(typeof p.contrast==='boolean'){ state.highContrast=p.contrast; applyContrast(); }
+  if(typeof p.tts==='boolean'){ toggleTTS.checked=p.tts; }
+  if(p.preset){ presetSelect.value=p.preset; }
+  if(p.mapX){ mapX.value=p.mapX; } if(p.mapY){ mapY.value=p.mapY; } if(p.mapZ){ mapZ.value=p.mapZ; }
+  if(p.smooth){ smoothWinEl.value=p.smooth; } if(p.rmsTh){ rmsThEl.value=p.rmsTh; }
+  if(p.cs){ colorScaleEl.value=p.cs; }
+  if(p.presentation){ document.body.classList.add('presentation'); }
+  try{ Plotly.Plots.resize(plotEl); }catch{}
+}
+function populateModal(){
+  const p=prefsGet();
+  setTheme.value=p.theme||state.theme||'dark';
+  setContrast.checked = p.contrast ?? state.highContrast ?? false;
+  setTTS.checked = p.tts ?? (toggleTTS?.checked||false);
+  setPreset.value = p.preset || (presetSelect?.value||'default');
+  setMapX.value = p.mapX || mapX.value;
+  setMapY.value = p.mapY || mapY.value;
+  setMapZ.value = p.mapZ || mapZ.value;
+  setSmooth.value = p.smooth || smoothWinEl.value;
+  setRmsTh.value = p.rmsTh || rmsThEl.value;
+  setCS.value = p.cs || colorScaleEl.value;
+  setPresentation.checked = p.presentation || false;
+}
+btnSettings?.addEventListener('click', ()=>{ populateModal(); openModal(); });
+setCancel?.addEventListener('click', closeModal);
+modal?.addEventListener('click', (e)=>{ if(e.target===modal) closeModal(); });
+setReset?.addEventListener('click', ()=>{ localStorage.removeItem('vocal3d_prefs'); populateModal(); });
+setSave?.addEventListener('click', ()=>{
+  const p={ theme:setTheme.value, contrast:setContrast.checked, tts:setTTS.checked, preset:setPreset.value,
+    mapX:setMapX.value, mapY:setMapY.value, mapZ:setMapZ.value, smooth:parseInt(setSmooth.value||1),
+    rmsTh:parseFloat(setRmsTh.value||0.02), cs:setCS.value, presentation:setPresentation.checked };
+  prefsSet(p); closeModal(); applyPrefs(); renderBoth();
+});
+loadConfig().then(cfg=>{ APP_CFG=cfg; applyPrefs(); });
+
+
 // Data loaders
 async function loadJson(url){ const res=await fetch(url); return await res.json(); }
 function renderFromUrl(url){ loadJson(url).then(render); }
